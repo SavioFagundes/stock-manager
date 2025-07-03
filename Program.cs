@@ -1,94 +1,183 @@
-﻿class Program
-{
-    static void Main(string[] args)
-    {
-        var repo = new ProductRepository();
-        while (true)
-        {
-            Console.Clear();
-            Console.WriteLine("=== Gerenciador de Estoque ===");
-            Console.WriteLine("1. Listar produtos");
-            Console.WriteLine("2. Cadastrar produto");
-            Console.WriteLine("3. Atualizar produto");
-            Console.WriteLine("4. Remover produto");
-            Console.WriteLine("0. Sair");
-            Console.Write("Escolha uma opção: ");
-            var opt = Console.ReadLine();
+﻿using System;
+using System.Linq;
 
-            switch (opt)
+namespace StockManager
+{
+    class Program
+    {
+        static void Main()
+        {
+            var repo = new ProductRepository();
+            while (true)
             {
-                case "1": Listar(repo); break;
-                case "2": Cadastrar(repo); break;
-                case "3": Atualizar(repo); break;
-                case "4": new Program().Remover(repo); break;
-                case "0": return;
-                default:
-                    Console.WriteLine("Opção inválida. Tente novamente.");
-                    Pausar();
-                    continue;
+                Console.Clear();
+                Console.WriteLine("=== Gerenciador de Estoque ===");
+                Console.WriteLine("1. Listar produtos");
+                Console.WriteLine("2. Cadastrar produto");
+                Console.WriteLine("3. Atualizar produto");
+                Console.WriteLine("4. Remover produto");
+                Console.WriteLine("0. Sair");
+                Console.Write("Escolha uma opção: ");
+                var opt = Console.ReadLine();
+
+                switch (opt)
+                {
+                    case "1": Listar(repo); break;
+                    case "2": Cadastrar(repo); break;
+                    case "3": Atualizar(repo); break;
+                    case "4": Remover(repo); break;
+                    case "0": return;
+                    default:
+                        Console.WriteLine("Opção inválida!");
+                        Pausar();
+                        break;
+                }
             }
         }
-    }
 
-    static void Listar(ProductRepository repo)
-    {
-        Console.WriteLine("=== Lista de Produtos ===");
-        foreach (var p in repo.GetAll())
+        static void Listar(ProductRepository repo)
         {
-            Console.WriteLine($"ID: {p.Id}, Nome: {p.Name}, Quantidade: {p.Quantity}, Preço: {p.Price:C}");
+            Console.WriteLine("\nProdutos no estoque:");
+            foreach (var p in repo.GetAll())
+            {
+                Console.WriteLine($"{p.Id} | {p.Name} | Qtd: {p.Quantity} | R$ {p.Price:F2}");
+            }
+            Pausar();
         }
-        Pausar();
-    }
-    static void Cadastrar(ProductRepository repo)
-    {
-        Console.WriteLine("=== Cadastrar Produto ===");
-        var p = new Product.Product { Id = Guid.NewGuid() };
-        Console.Write("Nome: "); p.Name = Console.ReadLine();
-        Console.Write("Quantidade: "); p.Quantity = int.Parse(Console.ReadLine());
-        Console.Write("Preço: "); p.Price = decimal.Parse(Console.ReadLine());
-        repo.Add(p);
-        Console.WriteLine("Produto cadastrado com sucesso!");
-        Pausar();
-    }
 
-    static void Atualizar(ProductRepository repo)
-    {
-        Console.WriteLine("=== Atualizar Produto ===");
-        if (!Guid.TryParse(Console.ReadLine(), out var id)) { System.Console.WriteLine("Id Inválido."); Pausar(); return; }
+        static void Cadastrar(ProductRepository repo)
+        {
+            Console.WriteLine("\n== Novo Produto ==");
+            var p = new Product.Product { Id = Guid.NewGuid() };
 
-        var existing = repo.GetAll().FirstOrDefault(p => p.Id == id);
-        if (existing == null) { System.Console.WriteLine("Produto não encontrado."); Pausar(); return; }
+            // Validação do Nome
+            do
+            {
+                Console.Write("Nome: ");
+                p.Name = Console.ReadLine() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(p.Name))
+                    Console.WriteLine("Nome não pode ser vazio. Tente novamente.");
+            } while (string.IsNullOrWhiteSpace(p.Name));
 
-        Console.Write($"Nome ({existing.Name}): ");
-        var nome = Console.ReadLine(); if (!string.IsNullOrWhiteSpace(nome)) existing.Name = nome;
+            // Validação da Quantidade
+            p.Quantity = ReadInt("Quantidade", min: 0);
 
-        Console.Write($"Quantidade ({existing.Quantity}): ");
-        var qtd = Console.ReadLine();
-        if (int.TryParse(qtd, out var q)) existing.Quantity = q;
+            // Validação do Preço
+            p.Price = ReadDecimal("Preço unitário", min: 0m);
 
-        Console.Write($"Preço ({existing.Price:F2}): ");
-        var pr = Console.ReadLine();
-        if (decimal.TryParse(pr, out var dv)) existing.Price = dv;
+            repo.Add(p);
+            Console.WriteLine("Produto cadastrado com sucesso!");
+            Pausar();
+        }
 
-        repo.Update(existing);
-        Console.WriteLine("Produto atualizado!");
-        Pausar();
+        static void Atualizar(ProductRepository repo)
+        {
+            Console.WriteLine("\n== Atualizar Produto ==");
+            var id = ReadGuid("ID do produto a atualizar");
 
-    }
+            var existing = repo.GetAll().FirstOrDefault(p => p.Id == id);
+            if (existing == null)
+            {
+                Console.WriteLine("Produto não encontrado.");
+                Pausar();
+                return;
+            }
 
-    public void Remover(ProductRepository repo)
-    {
-        Console.Write("=== Remover Produto ===\nDigite o ID do produto: ");
-        if (!Guid.TryParse(Console.ReadLine(), out var id)) { System.Console.WriteLine("Id Inválido."); Pausar(); return; }
-        if (repo.Delete(id)) System.Console.WriteLine("Produto removido com sucesso!");
-        else System.Console.WriteLine("Produto não encontrado.");
-        Pausar();
-    }
+            Console.WriteLine($"Nome atual: {existing.Name}");
+            Console.Write("Novo nome (Enter para manter): ");
+            var nome = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(nome))
+                existing.Name = nome;
 
+            Console.WriteLine($"Quantidade atual: {existing.Quantity}");
+            Console.Write("Nova quantidade (Enter para manter): ");
+            var qtdInput = Console.ReadLine();
+            int qtd;
+            if (!string.IsNullOrWhiteSpace(qtdInput) && int.TryParse(qtdInput, out qtd))
+                existing.Quantity = qtd;
 
-    static void Pausar()
-    {
-        Console.WriteLine("Pressione Enter para continuar...");
-        Console.ReadLine();
+            Console.WriteLine($"Preço atual: R$ {existing.Price:F2}");
+            Console.Write("Novo preço (Enter para manter): ");
+            var prInput = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(prInput) && decimal.TryParse(prInput, out var pr))
+                existing.Price = pr;
+
+            repo.Update(existing);
+            Console.WriteLine("Produto atualizado com sucesso!");
+            Pausar();
+        }
+
+        static void Remover(ProductRepository repo)
+        {
+            Console.WriteLine("\n== Remover Produto ==");
+            var id = ReadGuid("ID do produto a remover");
+
+            if (repo.Delete(id))
+                Console.WriteLine("Produto removido com sucesso!");
+            else
+                Console.WriteLine("Produto não encontrado.");
+
+            Pausar();
+        }
+
+        // Métodos auxiliares de validação
+        static void Pausar()
+        {
+            Console.WriteLine("\nPressione ENTER para continuar...");
+            Console.ReadLine();
+        }
+
+        static Guid ReadGuid(string prompt)
+        {
+            Guid id;
+            do
+            {
+                Console.Write($"{prompt}: ");
+                var input = Console.ReadLine();
+                if (Guid.TryParse(input, out id))
+                    return id;
+                Console.WriteLine("ID inválido. Digite um GUID válido.");
+            } while (true);
+        }
+
+        static int ReadInt(string prompt, int? min = null, int? max = null, bool allowEmpty = false)
+        {
+            int value;
+            do
+            {
+                Console.Write($"{prompt}: ");
+                var input = Console.ReadLine();
+                if (allowEmpty && string.IsNullOrWhiteSpace(input))
+                    return default; // will be handled by caller
+                if (int.TryParse(input, out value) &&
+                    (!min.HasValue || value >= min) &&
+                    (!max.HasValue || value <= max))
+                    return value;
+
+                Console.WriteLine("Entrada inválida. Digite um número inteiro válido" +
+                                  (min.HasValue ? $" >= {min}" : "") +
+                                  (max.HasValue ? $" <= {max}" : "") + ".");
+            } while (true);
+        }
+
+        static decimal ReadDecimal(string prompt, decimal? min = null, decimal? max = null, bool allowEmpty = false)
+        {
+            decimal value;
+            do
+            {
+                Console.Write($"{prompt}: ");
+                var input = Console.ReadLine();
+                if (allowEmpty && string.IsNullOrWhiteSpace(input))
+                    return default; // will be handled by caller
+                if (decimal.TryParse(input, out value) &&
+                    (!min.HasValue || value >= min) &&
+                    (!max.HasValue || value <= max))
+                    return value;
+
+                Console.WriteLine("Entrada inválida. Digite um número decimal válido" +
+                                  (min.HasValue ? $" >= {min}" : "") +
+                                  (max.HasValue ? $" <= {max}" : "") + ".");
+            } while (true);
+        }
     }
 }
